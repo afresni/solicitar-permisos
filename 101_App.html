@@ -1,0 +1,253 @@
+<div class="app-shell">
+  <header class="app-header">
+    <div class="app-header__left">
+      <h1 class="app-title">Gestión de permisos</h1>
+      <p class="app-subtitle">Centro educativo</p>
+    </div>
+    <div class="app-header__right" id="user-info" aria-live="polite"></div>
+  </header>
+
+  <nav class="app-nav" aria-label="Navegación principal">
+    <button type="button" class="nav-tab" data-view="nueva-solicitud">Nueva solicitud</button>
+    <button type="button" class="nav-tab" data-view="mis-solicitudes">Mis solicitudes</button>
+    <button type="button" class="nav-tab" data-view="admin">Administración</button>
+  </nav>
+
+  <main id="view-container" class="view-container">
+    <section id="view-nueva-solicitud" class="view-panel" aria-labelledby="titulo-nueva-solicitud">
+      <h2 id="titulo-nueva-solicitud">Solicitud interna de permiso / licencia docente</h2>
+
+      <form id="form-solicitud" class="form-solicitud" autocomplete="off" novalidate>
+        <section class="form-section" aria-labelledby="titulo-datos-solicitante">
+          <h3 id="titulo-datos-solicitante" class="form-section-title">Datos del solicitante</h3>
+
+          <div class="form-row">
+            <label for="email_institucional_display">Email institucional detectado</label>
+            <div id="email_institucional_display" class="readonly-box" aria-readonly="true">Email detectado al enviar</div>
+            <input type="hidden" id="email_institucional" name="email_institucional">
+          </div>
+
+          <div class="form-row form-row--inline">
+            <div class="form-field">
+              <label for="nombre_profesor">Nombre</label>
+              <input type="text" id="nombre_profesor" name="nombre_profesor" required>
+            </div>
+
+            <div class="form-field">
+              <label for="apellidos_profesor">Apellidos</label>
+              <input type="text" id="apellidos_profesor" name="apellidos_profesor" required>
+            </div>
+          </div>
+
+          <div class="form-row form-row--inline">
+            <div class="form-field">
+              <label for="dni_profesor">DNI</label>
+              <input type="text" id="dni_profesor" name="dni_profesor" required>
+            </div>
+
+            <div class="form-field">
+              <label for="etapa">Etapa</label>
+              <select id="etapa" name="etapa" required>
+                <option value="">Selecciona una etapa</option>
+                <option value="INFANTIL">INFANTIL</option>
+                <option value="PRIMARIA">PRIMARIA</option>
+                <option value="ESO">ESO</option>
+                <option value="PAS">PAS</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-row form-row--inline">
+            <div class="form-field">
+              <label for="puesto_trabajo">Puesto de trabajo</label>
+              <select id="puesto_trabajo" name="puesto_trabajo" required>
+                <option value="">Selecciona un puesto</option>
+                <option value="Tutor/a">Tutor/a</option>
+                <option value="Especialista">Especialista</option>
+                <option value="PAS">PAS</option>
+                <option value="Equipo directivo">Equipo directivo</option>
+                <option value="Orientación">Orientación</option>
+                <option value="Otro">Otro</option>
+              </select>
+            </div>
+
+            <div class="form-field" id="puesto_trabajo_otro_container" hidden>
+              <label for="puesto_trabajo_otro">Especificar puesto</label>
+              <input type="text" id="puesto_trabajo_otro" name="puesto_trabajo_otro">
+            </div>
+          </div>
+        </section>
+
+        <section class="form-section" aria-labelledby="titulo-referencia-permiso">
+          <h3 id="titulo-referencia-permiso" class="form-section-title">Referencia del permiso</h3>
+
+          <div class="form-row form-row--inline">
+            <div class="form-field">
+              <label for="categoria_permiso">Categoría de permiso</label>
+              <select id="categoria_permiso" name="categoria_permiso" required>
+                <option value="">Selecciona una categoría</option>
+              </select>
+            </div>
+
+            <div class="form-field">
+              <label for="permiso_key">Tipo de permiso / licencia</label>
+              <select id="permiso_key" name="permiso_key" required>
+                <option value="">Selecciona un permiso</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-row form-row--inline">
+            <div class="form-field">
+              <label for="articulo_referencia_display">Artículo / referencia del permiso</label>
+              <div id="articulo_referencia_display" class="readonly-box" aria-readonly="true"></div>
+            </div>
+
+            <div class="form-field">
+              <label for="tipo_computo_display">Tipo de cómputo</label>
+              <div id="tipo_computo_display" class="readonly-box" aria-readonly="true"></div>
+            </div>
+          </div>
+
+          <div class="form-row form-row--inline">
+            <div class="form-field">
+              <label for="unidad_control_display">Unidad de control</label>
+              <div id="unidad_control_display" class="readonly-box" aria-readonly="true"></div>
+            </div>
+
+            <div class="form-field">
+              <label for="justificante_display">Justificante</label>
+              <div id="justificante_display" class="readonly-box" aria-readonly="true"></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="form-section" aria-labelledby="titulo-periodo-solicitado">
+          <h3 id="titulo-periodo-solicitado" class="form-section-title">Periodo solicitado</h3>
+
+          <div class="form-row form-row--inline">
+            <div class="form-field" data-tipo-computo="DIA_COMPLETO MIXTO HORAS">
+              <label for="fecha_inicio">Fecha inicio</label>
+              <input type="date" id="fecha_inicio" name="fecha_inicio" required>
+            </div>
+
+            <div class="form-field" data-tipo-computo="DIA_COMPLETO MIXTO">
+              <label for="fecha_fin">Fecha fin</label>
+              <input type="date" id="fecha_fin" name="fecha_fin">
+            </div>
+          </div>
+
+          <div class="form-row form-row--inline">
+            <div class="form-field" data-tipo-computo="HORAS MIXTO">
+              <label for="hora_inicio">Hora inicio</label>
+              <input type="time" id="hora_inicio" name="hora_inicio">
+            </div>
+
+            <div class="form-field" data-tipo-computo="HORAS MIXTO">
+              <label for="hora_fin">Hora fin</label>
+              <input type="time" id="hora_fin" name="hora_fin">
+            </div>
+          </div>
+
+          <div class="form-row form-row--inline">
+            <div class="form-field" data-tipo-computo="DIA_COMPLETO MIXTO">
+              <label for="num_dias_solicitados">N.º días solicitados</label>
+              <input type="number" id="num_dias_solicitados" name="num_dias_solicitados" min="0" step="0.5">
+            </div>
+
+            <div class="form-field" data-tipo-computo="HORAS MIXTO">
+              <label for="num_horas_solicitadas">N.º horas solicitadas</label>
+              <input type="number" id="num_horas_solicitadas" name="num_horas_solicitadas" min="0" step="0.25">
+            </div>
+          </div>
+        </section>
+
+        <section
+          class="form-section"
+          id="bloque-acumulado"
+          data-acumulado="true"
+          aria-labelledby="titulo-bolsa-acumulado"
+          hidden
+        >
+          <h3 id="titulo-bolsa-acumulado" class="form-section-title">Bolsa / acumulado</h3>
+
+          <div class="form-row form-row--inline">
+            <div class="form-field">
+              <label for="maximo_por_curso_display">Máximo por curso</label>
+              <div id="maximo_por_curso_display" class="readonly-box" aria-readonly="true"></div>
+            </div>
+
+            <div class="form-field">
+              <label for="acumulado_previo_display">Acumulado previo</label>
+              <div id="acumulado_previo_display" class="readonly-box" aria-readonly="true"></div>
+            </div>
+          </div>
+
+          <div class="form-row form-row--inline">
+            <div class="form-field">
+              <label for="solicitado_ahora_display">Solicitado ahora</label>
+              <div id="solicitado_ahora_display" class="readonly-box" aria-readonly="true"></div>
+            </div>
+
+            <div class="form-field">
+              <label for="acumulado_estimado_display">Acumulado estimado</label>
+              <div id="acumulado_estimado_display" class="readonly-box" aria-readonly="true"></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="form-section" aria-labelledby="titulo-observaciones">
+          <h3 id="titulo-observaciones" class="form-section-title">Observaciones del solicitante</h3>
+
+          <div class="form-row">
+            <label for="observaciones_profesor">Observaciones</label>
+            <textarea id="observaciones_profesor" name="observaciones_profesor" rows="4"></textarea>
+          </div>
+
+          <div class="form-actions">
+            <button type="submit" id="btn-enviar-solicitud">Enviar solicitud</button>
+          </div>
+        </section>
+      </form>
+    </section>
+
+    <section id="view-mis-solicitudes" class="view-panel" aria-labelledby="titulo-mis-solicitudes" hidden>
+      <h2 id="titulo-mis-solicitudes">Mis solicitudes</h2>
+
+      <div class="table-wrapper">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Permiso</th>
+              <th>Fecha inicio</th>
+              <th>Fecha fin</th>
+              <th>Estado</th>
+            </tr>
+          </thead>
+          <tbody id="mis-solicitudes-body"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="view-admin" class="view-panel" aria-labelledby="titulo-admin" hidden>
+      <h2 id="titulo-admin">Administración</h2>
+
+      <div class="table-wrapper">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Profesor/a</th>
+              <th>Permiso</th>
+              <th>Fecha inicio</th>
+              <th>Estado</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="admin-solicitudes-body"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+</div>

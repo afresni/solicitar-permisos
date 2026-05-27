@@ -1,0 +1,728 @@
+<script>
+  (function () {
+    'use strict';
+
+    var APP_STATE = {
+      catalogo: [],
+      selectedPermiso: null,
+      acumuladoPrevio: 0,
+      adminRowsById: {}
+    };
+
+    window.__PERMISOS_DEBUG__ = APP_STATE;
+
+    function initApp() {
+      document.querySelectorAll('.nav-tab').forEach(function (tab) {
+        tab.addEventListener('click', function () {
+          showView(tab.getAttribute('data-view'));
+        });
+      });
+
+      var form = document.getElementById('form-solicitud');
+      if (form) {
+        form.addEventListener('submit', submitNuevaSolicitud);
+      }
+
+      _appBindFormEvents_();
+
+      loadCatalogoPermisos();
+      loadMisSolicitudes();
+      showView('nueva-solicitud');
+    }
+
+    function showView(viewName) {
+      _appSetActiveTab_(viewName);
+      _appToggleViews_(viewName);
+
+      if (viewName === 'mis-solicitudes') {
+        loadMisSolicitudes();
+      }
+
+      if (viewName === 'admin') {
+        loadSolicitudesPendientes();
+      }
+    }
+
+    function loadCatalogoPermisos() {
+      if (!_appEnsureGoogleRun_()) return;
+
+      google.script.run
+        .withSuccessHandler(function (response) {
+          if (!response || response.ok !== true) {
+            _appHandleError_(response && response.error ? response.error : { message: 'No se pudo cargar el catálogo.' });
+            return;
+          }
+
+          APP_STATE.catalogo = Array.isArray(response.data) ? response.data : [];
+          _appPopulateCatalogo_(APP_STATE.catalogo);
+        })
+        .withFailureHandler(_appHandleError_)
+        .apiGetCatalogoPermisos({});
+    }
+
+    function loadMisSolicitudes() {
+      if (!_appEnsureGoogleRun_()) return;
+
+      google.script.run
+        .withSuccessHandler(function (response) {
+          if (!response || response.ok !== true) {
+            _appHandleError_(response && response.error ? response.error : { message: 'No se pudieron cargar tus solicitudes.' });
+            _appRenderMisSolicitudes_([]);
+            return;
+          }
+
+          _appRenderMisSolicitudes_(Array.isArray(response.data) ? response.data : []);
+        })
+        .withFailureHandler(function (err) {
+          _appHandleError_(err);
+          _appRenderMisSolicitudes_([]);
+        })
+        .apiGetMisSolicitudes({});
+    }
+
+    function loadSolicitudesPendientes() {
+      if (!_appEnsureGoogleRun_()) return;
+
+      google.script.run
+        .withSuccessHandler(function (response) {
+          if (!response || response.ok !== true) {
+            _appHandleError_(response && response.error ? response.error : { message: 'No se pudieron cargar solicitudes pendientes.' });
+            _appRenderAdminSolicitudes_([]);
+            return;
+          }
+
+          _appRenderAdminSolicitudes_(Array.isArray(response.data) ? response.data : []);
+        })
+        .withFailureHandler(function (err) {
+          _appHandleError_(err);
+          _appRenderAdminSolicitudes_([]);
+        })
+        .apiGetSolicitudesPendientes({});
+    }
+
+    function submitNuevaSolicitud(event) {
+      if (event && typeof event.preventDefault === 'function') {
+        event.preventDefault();
+      }
+
+      var btn = document.getElementById('btn-enviar-solicitud');
+
+      if (btn && btn.dataset.loading === '1') {
+        _appShowMessage_('La solicitud ya se está procesando. Espera unos segundos.', 'info');
+        return;
+      }
+
+      var payload;
+
+      try {
+        payload = _appBuildSolicitudPayload_();
+      } catch (err) {
+        _appHandleError_(err);
+        return;
+      }
+
+      if (!_appEnsureGoogleRun_()) return;
+
+      _appShowMessage_('Procesando solicitud...', 'info');
+
+      if (btn) {
+        btn.disabled = true;
+        btn.dataset.loading = '1';
+        btn.textContent = 'Procesando...';
+      }
+
+      var slowTimer = setTimeout(function () {
+        _appShowMessage_('La solicitud sigue procesándose. No cierres esta ventana.', 'info');
+      }, 5000);
+
+      google.script.run
+        .withSuccessHandler(function (response) {
+          clearTimeout(slowTimer);
+
+          if (btn) {
+            btn.disabled = false;
+            delete btn.dataset.loading;
+            btn.textContent = 'Enviar solicitud';
+          }
+
+          if (!response || response.ok !== true) {
+            _appHandleError_(
+              response && response.error
+                ? response.error
+                : { message: 'No se pudo crear la solicitud.' }
+            );
+            return;
+          }
+
+          _appShowMessage_('Solicitud enviada correctamente.', 'success');
+
+          var form = document.getElementById('form-solicitud');
+          if (form) form.reset();
+
+          APP_STATE.selectedPermiso = null;
+          APP_STATE.acumuladoPrevio = 0;
+
+          _appTogglePuestoOtro_();
+          _appApplyComputoUI_('');
+          _appPaintPermisoInfo_(null);
+          _appUpdateAcumuladoUI_();
+
+          loadMisSolicitudes();
+          loadSolicitudesPendientes();
+
+          setTimeout(function () {
+            showView('mis-solicitudes');
+          }, 800);
+        })
+        .withFailureHandler(function (err) {
+          clearTimeout(slowTimer);
+
+          if (btn) {
+            btn.disabled = false;
+            delete btn.dataset.loading;
+            btn.textContent = 'Enviar solicitud';
+          }
+
+          _appHandleError_(err);
+        })
+        .apiCrearSolicitud({ payload: payload });
+    }
+
+    function _appBindFormEvents_() {
+      var puesto = document.getElementById('puesto_trabajo');
+      if (puesto) puesto.onchange = _appTogglePuestoOtro_;
+
+      var permiso = document.getElementById('permiso_key');
+      if (permiso) permiso.onchange = _appOnPermisoChange_;
+
+      var horas = document.getElementById('num_horas_solicitadas');
+      if (horas) horas.oninput = _appUpdateAcumuladoUI_;
+
+      var dias = document.getElementById('num_dias_solicitados');
+      if (dias) dias.oninput = _appUpdateAcumuladoUI_;
+    }
+
+    function _appSetActiveTab_(viewName) {
+      document.querySelectorAll('.nav-tab').forEach(function (tab) {
+        tab.classList.toggle('active', tab.getAttribute('data-view') === viewName);
+      });
+    }
+
+    function _appToggleViews_(viewName) {
+      var map = {
+        'nueva-solicitud': 'view-nueva-solicitud',
+        'mis-solicitudes': 'view-mis-solicitudes',
+        'admin': 'view-admin'
+      };
+
+      Object.keys(map).forEach(function (key) {
+        var el = document.getElementById(map[key]);
+        if (el) el.hidden = key !== viewName;
+      });
+    }
+
+    function _appRenderMisSolicitudes_(rows) {
+      var tbody = document.getElementById('mis-solicitudes-body');
+      if (!tbody) return;
+
+      tbody.innerHTML = '';
+
+      if (!rows || rows.length === 0) {
+        _appRenderEmptyRow_(tbody, 5, 'No hay solicitudes registradas.');
+        return;
+      }
+
+      rows.forEach(function (item) {
+        var tr = document.createElement('tr');
+        var estado = item.estado_resolucion || item.estado || 'PENDIENTE';
+
+        tr.innerHTML = ''
+          + '<td>' + _appEscapeHtml_(item.id_solicitud || '') + '</td>'
+          + '<td>' + _appEscapeHtml_(item.tipo_permiso || '') + '</td>'
+          + '<td>' + _appEscapeHtml_(item.fecha_inicio || '') + '</td>'
+          + '<td>' + _appEscapeHtml_(item.fecha_fin || '') + '</td>'
+          + '<td>' + _appEscapeHtml_(estado) + '</td>';
+
+        tbody.appendChild(tr);
+      });
+    }
+
+    function _appRenderAdminSolicitudes_(rows) {
+      var tbody = document.getElementById('admin-solicitudes-body');
+      if (!tbody) return;
+
+      tbody.innerHTML = '';
+      APP_STATE.adminRowsById = {};
+
+      if (!rows || rows.length === 0) {
+        _appRenderEmptyRow_(tbody, 6, 'No hay solicitudes pendientes.');
+        return;
+      }
+
+      rows.forEach(function (item) {
+        var id = String(item.id_solicitud || '').trim();
+        APP_STATE.adminRowsById[id] = item;
+
+        var tr = document.createElement('tr');
+        var nombreProfesor = ((item.nombre_profesor || '') + ' ' + (item.apellidos_profesor || '')).trim();
+        var estado = item.estado_resolucion || item.estado || 'PENDIENTE';
+
+        tr.innerHTML = ''
+          + '<td>' + _appEscapeHtml_(id) + '</td>'
+          + '<td>' + _appEscapeHtml_(nombreProfesor) + '</td>'
+          + '<td>' + _appEscapeHtml_(item.tipo_permiso || '') + '</td>'
+          + '<td>' + _appEscapeHtml_(item.fecha_inicio || '') + '</td>'
+          + '<td>' + _appEscapeHtml_(estado) + '</td>'
+          + '<td></td>';
+
+        var actionsTd = tr.querySelector('td:last-child');
+
+        var btnAceptar = document.createElement('button');
+        btnAceptar.type = 'button';
+        btnAceptar.textContent = 'Aceptar';
+        btnAceptar.addEventListener('click', function () {
+          _appResolverSolicitud_(id, 'ACEPTADA');
+        });
+
+        var btnDenegar = document.createElement('button');
+        btnDenegar.type = 'button';
+        btnDenegar.textContent = 'Denegar';
+        btnDenegar.addEventListener('click', function () {
+          _appResolverSolicitud_(id, 'DENEGADA');
+        });
+
+        actionsTd.appendChild(btnAceptar);
+        actionsTd.appendChild(document.createTextNode(' '));
+        actionsTd.appendChild(btnDenegar);
+
+        tbody.appendChild(tr);
+      });
+    }
+
+    function _appResolverSolicitud_(idSolicitud, decision) {
+      var row = APP_STATE.adminRowsById[idSolicitud];
+
+      if (!row) {
+        _appHandleError_('No se ha encontrado la solicitud seleccionada.');
+        return;
+      }
+
+      if (!confirm('¿Seguro que deseas marcar esta solicitud como ' + decision + '?')) {
+        return;
+      }
+
+      var datosResolucion = _appBuildDatosResolucion_(row, decision);
+
+      google.script.run
+        .withSuccessHandler(function (response) {
+          if (!response || response.ok !== true) {
+            _appHandleError_(response && response.error ? response.error : { message: 'No se pudo resolver la solicitud.' });
+            return;
+          }
+
+          _appShowMessage_('Solicitud resuelta correctamente.', 'success');
+
+          loadSolicitudesPendientes();
+          loadMisSolicitudes();
+        })
+        .withFailureHandler(_appHandleError_)
+        .apiResolverSolicitud({
+          payload: {
+            idSolicitud: idSolicitud,
+            decision: decision,
+            datosResolucion: datosResolucion
+          }
+        });
+    }
+
+    function _appBuildDatosResolucion_(row, decision) {
+      var tipoComputo = String(row.tipo_computo || '').trim().toUpperCase();
+
+      var observaciones = prompt(
+        decision === 'ACEPTADA'
+          ? 'Observaciones de dirección para aceptar la solicitud:'
+          : 'Motivo/observaciones de dirección para denegar la solicitud:',
+        decision === 'ACEPTADA'
+          ? 'Solicitud aceptada.'
+          : 'Solicitud denegada.'
+      );
+
+      if (observaciones === null) {
+        observaciones = '';
+      }
+
+      var datos = {
+        estado_resolucion: decision,
+        check_aceptada: decision === 'ACEPTADA' ? 'X' : '',
+        check_denegada: decision === 'DENEGADA' ? 'X' : '',
+        observaciones_direccion: observaciones,
+        fecha_resolucion: _appTodayIso_()
+      };
+
+      if (decision === 'ACEPTADA') {
+        if (tipoComputo === 'HORAS') {
+          datos.horas_autorizadas = row.num_horas_solicitadas || '0';
+        } else if (tipoComputo === 'DIA_COMPLETO') {
+          datos.dias_autorizados = row.num_dias_solicitados || '1';
+        } else if (tipoComputo === 'MIXTO') {
+          datos.horas_autorizadas = row.num_horas_solicitadas || '0';
+          datos.dias_autorizados = row.num_dias_solicitados || '1';
+        }
+      }
+
+      return datos;
+    }
+
+    function _appBuildSolicitudPayload_() {
+      var nombre = _appGetValue_('nombre_profesor');
+      var apellidos = _appGetValue_('apellidos_profesor');
+      var dni = _appGetValue_('dni_profesor');
+      var etapa = _appGetValue_('etapa');
+      var puestoBase = _appGetValue_('puesto_trabajo');
+      var puestoOtro = _appGetValue_('puesto_trabajo_otro');
+
+      var categoria = _appGetValue_('categoria_permiso');
+      var permisoKey = _appGetValue_('permiso_key');
+
+      var fechaInicio = _appGetValue_('fecha_inicio');
+      var fechaFin = _appGetValue_('fecha_fin');
+      var horaInicio = _appGetValue_('hora_inicio');
+      var horaFin = _appGetValue_('hora_fin');
+      var dias = _appGetValue_('num_dias_solicitados');
+      var horas = _appGetValue_('num_horas_solicitadas').replace(',', '.');
+      var observaciones = _appGetValue_('observaciones_profesor');
+
+      if (!nombre) throw new Error('VALIDATION_ERROR: nombre requerido.');
+      if (!apellidos) throw new Error('VALIDATION_ERROR: apellidos requeridos.');
+      if (!dni) throw new Error('VALIDATION_ERROR: DNI requerido.');
+      if (!etapa) throw new Error('VALIDATION_ERROR: etapa requerida.');
+      if (!puestoBase) throw new Error('VALIDATION_ERROR: puesto de trabajo requerido.');
+      if (!categoria) throw new Error('VALIDATION_ERROR: categoría de permiso requerida.');
+      if (!permisoKey) throw new Error('VALIDATION_ERROR: permiso requerido.');
+      if (!fechaInicio) throw new Error('VALIDATION_ERROR: fecha de inicio requerida.');
+
+      var puestoFinal = puestoBase === 'Otro' ? puestoOtro : puestoBase;
+      if (puestoBase === 'Otro' && !puestoFinal) {
+        throw new Error('VALIDATION_ERROR: debes especificar el puesto de trabajo.');
+      }
+
+      var permisoData = APP_STATE.catalogo.find(function (p) {
+        return String(p.permiso_key || '').trim() === permisoKey;
+      }) || {};
+
+      var tipoComputo = String(permisoData.tipo_computo_default || '').trim();
+      var unidadControl = String(permisoData.unidad_control || '').trim();
+      var requiereAcumulado = String(permisoData.requiere_acumulado || '').trim();
+
+      if (tipoComputo === 'DIA_COMPLETO') {
+        if (!fechaFin) {
+          fechaFin = fechaInicio;
+        }
+
+        if (!dias) {
+          dias = '1';
+        }
+      }
+
+      if (tipoComputo === 'HORAS') {
+        if (!horaInicio) throw new Error('VALIDATION_ERROR: hora inicio requerida.');
+        if (!horaFin) throw new Error('VALIDATION_ERROR: hora fin requerida.');
+        if (!horas) throw new Error('VALIDATION_ERROR: número de horas requerido.');
+      }
+
+      if (tipoComputo === 'MIXTO') {
+        if (!fechaFin) {
+          fechaFin = fechaInicio;
+        }
+
+        if (!dias) {
+          dias = '1';
+        }
+
+        if (!horaInicio) throw new Error('VALIDATION_ERROR: hora inicio requerida.');
+        if (!horaFin) throw new Error('VALIDATION_ERROR: hora fin requerida.');
+        if (!horas) throw new Error('VALIDATION_ERROR: número de horas requerido.');
+      }
+
+      if (fechaInicio && fechaFin && fechaInicio > fechaFin) {
+        throw new Error('VALIDATION_ERROR: fecha_inicio no puede ser mayor que fecha_fin.');
+      }
+
+      return {
+        nombre_profesor: nombre,
+        apellidos_profesor: apellidos,
+        dni_profesor: dni,
+        etapa: etapa,
+        puesto_trabajo: puestoFinal,
+        categoria_permiso: categoria,
+        permiso_key: permisoKey,
+        tipo_permiso: permisoData.tipo_permiso || '',
+        articulo_referencia_permiso: permisoData.articulo_referencia || '',
+        tipo_computo: tipoComputo,
+        unidad_control: unidadControl,
+        maximo_por_curso: permisoData.maximo_por_curso || '',
+        requiere_acumulado: requiereAcumulado,
+        fecha_inicio: fechaInicio,
+        fecha_fin: fechaFin,
+        hora_inicio: horaInicio,
+        hora_fin: horaFin,
+        num_dias_solicitados: dias,
+        num_horas_solicitadas: horas,
+        observaciones_profesor: observaciones,
+        justificante_adjunto: permisoData.requiere_justificante || 'NO'
+      };
+    }
+
+    function _appPopulateCatalogo_(catalogo) {
+      var categoriaSelect = document.getElementById('categoria_permiso');
+      var permisoSelect = document.getElementById('permiso_key');
+
+      if (!categoriaSelect || !permisoSelect) return;
+
+      var categorias = [];
+      var seen = {};
+
+      catalogo.forEach(function (item) {
+        var c = String(item.categoria_permiso || '').trim();
+
+        if (c && !seen[c]) {
+          seen[c] = true;
+          categorias.push(c);
+        }
+      });
+
+      categoriaSelect.innerHTML = '<option value="">Selecciona una categoría</option>';
+
+      categorias.forEach(function (c) {
+        var opt = document.createElement('option');
+        opt.value = c;
+        opt.textContent = c;
+        categoriaSelect.appendChild(opt);
+      });
+
+      permisoSelect.innerHTML = '<option value="">Selecciona un permiso</option>';
+
+      categoriaSelect.onchange = function () {
+        var cat = String(categoriaSelect.value || '').trim();
+
+        APP_STATE.selectedPermiso = null;
+        permisoSelect.innerHTML = '<option value="">Selecciona un permiso</option>';
+
+        catalogo
+          .filter(function (item) {
+            return String(item.categoria_permiso || '').trim() === cat;
+          })
+          .forEach(function (item) {
+            var opt = document.createElement('option');
+            var label = String(item.tipo_permiso || '').trim();
+
+            if (String(item.requiere_acumulado || '').trim().toUpperCase() === 'SI') {
+              label += ' — acumulable';
+            }
+
+            if (item.maximo_por_curso) {
+              label += ' — máx. ' + item.maximo_por_curso;
+            }
+
+            opt.value = String(item.permiso_key || '').trim();
+            opt.textContent = label;
+            permisoSelect.appendChild(opt);
+          });
+
+        _appPaintPermisoInfo_(null);
+        _appApplyComputoUI_('');
+        _appUpdateAcumuladoUI_();
+      };
+    }
+
+    function _appOnPermisoChange_() {
+      var permisoKey = _appGetValue_('permiso_key');
+
+      APP_STATE.selectedPermiso = APP_STATE.catalogo.find(function (p) {
+        return String(p.permiso_key || '').trim() === permisoKey;
+      }) || null;
+
+      var tipoComputo = APP_STATE.selectedPermiso
+        ? String(APP_STATE.selectedPermiso.tipo_computo_default || '').trim()
+        : '';
+
+      _appPaintPermisoInfo_(APP_STATE.selectedPermiso);
+      _appApplyComputoUI_(tipoComputo);
+      _appUpdateAcumuladoUI_();
+    }
+
+    function _appPaintPermisoInfo_(permiso) {
+      if (!permiso) {
+        _appSetText_('articulo_referencia_display', '');
+        _appSetText_('tipo_computo_display', '');
+        _appSetText_('unidad_control_display', '');
+        _appSetText_('justificante_display', '');
+        return;
+      }
+
+      _appSetText_('articulo_referencia_display', permiso.articulo_referencia || '');
+      _appSetText_('tipo_computo_display', permiso.tipo_computo_default || '');
+      _appSetText_('unidad_control_display', permiso.unidad_control || '');
+      _appSetText_('justificante_display', permiso.requiere_justificante || 'NO');
+    }
+
+    function _appApplyComputoUI_(tipoComputo) {
+      var tipo = String(tipoComputo || '').trim();
+
+      document.querySelectorAll('[data-tipo-computo]').forEach(function (node) {
+        var allowed = String(node.getAttribute('data-tipo-computo') || '').split(/\s+/).filter(Boolean);
+        var visible = !!tipo && allowed.indexOf(tipo) !== -1;
+
+        node.hidden = !visible;
+
+        node.querySelectorAll('input, select, textarea').forEach(function (input) {
+          input.required = visible;
+          if (!visible) input.value = '';
+        });
+      });
+
+      var fechaInicio = document.getElementById('fecha_inicio');
+      if (fechaInicio) fechaInicio.required = true;
+    }
+
+    function _appUpdateAcumuladoUI_() {
+      var bloque = document.getElementById('bloque-acumulado');
+      if (!bloque) return;
+
+      var permiso = APP_STATE.selectedPermiso;
+      var requiere = permiso ? String(permiso.requiere_acumulado || '').trim().toUpperCase() : '';
+
+      if (requiere !== 'SI') {
+        bloque.hidden = true;
+        return;
+      }
+
+      bloque.hidden = false;
+
+      var unidad = String(permiso.unidad_control || '').trim().toUpperCase();
+      var maximo = Number(permiso.maximo_por_curso || 0);
+      var solicitado = 0;
+
+      if (unidad === 'HORAS') {
+        solicitado = Number(_appGetValue_('num_horas_solicitadas').replace(',', '.') || 0);
+      } else if (unidad === 'DIAS') {
+        solicitado = Number(_appGetValue_('num_dias_solicitados').replace(',', '.') || 0);
+      }
+
+      var previo = Number(APP_STATE.acumuladoPrevio || 0);
+      var estimado = previo + solicitado;
+
+      _appSetText_('maximo_por_curso_display', String(maximo));
+      _appSetText_('acumulado_previo_display', String(previo));
+      _appSetText_('solicitado_ahora_display', String(solicitado));
+      _appSetText_('acumulado_estimado_display', String(estimado));
+    }
+
+    function _appTogglePuestoOtro_() {
+      var puesto = document.getElementById('puesto_trabajo');
+      var inputOtro = document.getElementById('puesto_trabajo_otro');
+      var container = document.getElementById('puesto_trabajo_otro_container');
+
+      if (!puesto || !inputOtro || !container) return;
+
+      var show = String(puesto.value || '').trim() === 'Otro';
+
+      container.hidden = !show;
+      inputOtro.required = show;
+
+      if (!show) inputOtro.value = '';
+    }
+
+    function _appRenderEmptyRow_(tbody, colspan, text) {
+      var tr = document.createElement('tr');
+      var td = document.createElement('td');
+
+      td.colSpan = colspan;
+      td.textContent = text;
+
+      tr.appendChild(td);
+      tbody.appendChild(tr);
+    }
+
+    function _appHandleError_(err) {
+      var msg = 'Se ha producido un error.';
+
+      if (err) {
+        if (typeof err === 'string') msg = err;
+        else if (err.message) msg = err.message;
+        else if (err.error && err.error.message) msg = err.error.message;
+      }
+
+      _appShowMessage_(msg, 'error');
+
+      if (typeof console !== 'undefined' && console.error) {
+        console.error(err);
+      }
+    }
+
+    function _appShowMessage_(message, type) {
+      var container = document.getElementById('user-info');
+
+      if (!container) {
+        alert(message);
+        return;
+      }
+
+      var color = '#334155';
+      if (type === 'success') color = '#166534';
+      if (type === 'error') color = '#b91c1c';
+      if (type === 'info') color = '#1d4ed8';
+
+      clearTimeout(container._msgTimer);
+
+      container.textContent = message;
+      container.style.color = color;
+
+      container._msgTimer = setTimeout(function () {
+        container.textContent = '';
+      }, 7000);
+    }
+
+    function _appEnsureGoogleRun_() {
+      if (!(typeof google !== 'undefined' && google.script && google.script.run)) {
+        _appHandleError_('google.script.run no disponible.');
+        return false;
+      }
+
+      return true;
+    }
+
+    function _appTodayIso_() {
+      return new Date().toISOString().slice(0, 10);
+    }
+
+    function _appGetValue_(id) {
+      var el = document.getElementById(id);
+      if (!el) return '';
+      return String(el.value || '').trim();
+    }
+
+    function _appSetText_(id, value) {
+      var el = document.getElementById(id);
+      if (el) el.textContent = String(value === null || value === undefined ? '' : value);
+    }
+
+    function _appEscapeHtml_(value) {
+      return String(value === undefined || value === null ? '' : value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    window.initApp = initApp;
+    window.showView = showView;
+    window.loadCatalogoPermisos = loadCatalogoPermisos;
+    window.loadMisSolicitudes = loadMisSolicitudes;
+    window.loadSolicitudesPendientes = loadSolicitudesPendientes;
+    window.submitNuevaSolicitud = submitNuevaSolicitud;
+
+    document.addEventListener('DOMContentLoaded', initApp);
+  })();
+</script>
