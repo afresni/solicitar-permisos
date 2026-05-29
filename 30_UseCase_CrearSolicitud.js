@@ -43,6 +43,20 @@ function crearSolicitud(payload, actorEmail) {
 
   _crearSolicitud_applyPermisoConfigToPayload_(input, permisoConfig);
 
+  var tipoComputo = String(input.tipo_computo === null || input.tipo_computo === undefined ? '' : input.tipo_computo)
+    .trim()
+    .toUpperCase();
+
+  if (tipoComputo === 'DIA_COMPLETO') {
+    if (_crearSolicitud_isEmpty_(input.fecha_fin)) {
+      input.fecha_fin = input.fecha_inicio;
+    }
+
+    if (_crearSolicitud_isEmpty_(input.num_dias_solicitados)) {
+      input.num_dias_solicitados = 1;
+    }
+  }
+
   var payloadValidation = validateNuevaSolicitud(input, permisoConfig);
   if (!payloadValidation.ok) {
     throw new Error('VALIDATION_ERROR: ' + payloadValidation.errors.join(' | '));
