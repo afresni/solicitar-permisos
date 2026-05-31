@@ -165,6 +165,14 @@ function _notif_buildBody_(mode, solicitud, extra) {
     'Fecha fin: ' + _notif_safeString_(s.fecha_fin)
   ];
 
+  if (mode === 'RESOLUCION_PROFESOR') {
+    if (!_notif_isEmpty_(s.pdf_url)) {
+      lineas.push('');
+      lineas.push('PDF resolución: ' + _notif_safeString_(s.pdf_url));
+    }
+
+  }
+
   if (mode === 'EXCESO_ACUMULADO') {
     lineas.push('');
     lineas.push('Detalle de exceso acumulado:');
@@ -335,19 +343,29 @@ function notificarNuevaSolicitudResponsable(
     );
   }
 
+  var tokenResolucion = _notif_safeString_(s.token_resolucion);
+
+  if (_notif_isEmpty_(tokenResolucion)) {
+    throw new Error(
+      'VALIDATION_ERROR: token_resolucion obligatorio para enviar enlaces de resolución.'
+    );
+  }
+
   var webAppUrl = ScriptApp.getService().getUrl();
 
   var aceptarUrl =
     webAppUrl +
     '?action=resolver' +
     '&id=' + encodeURIComponent(s.id_solicitud) +
-    '&decision=ACEPTADA';
+    '&decision=ACEPTADA' +
+    '&token=' + encodeURIComponent(tokenResolucion);
 
   var denegarUrl =
     webAppUrl +
     '?action=resolver' +
     '&id=' + encodeURIComponent(s.id_solicitud) +
-    '&decision=DENEGADA';
+    '&decision=DENEGADA' +
+    '&token=' + encodeURIComponent(tokenResolucion);
 
   var adminUrl =
     webAppUrl +

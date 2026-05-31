@@ -249,12 +249,59 @@ function _pdfPermisos_valueOrDash_(value) {
 }
 
 function _pdfPermisos_buildFileBaseName_(solicitud, fechaGeneracion) {
-  var id = _pdfPermisos_safeString_(solicitud && solicitud.id_solicitud);
-  var estado = _pdfPermisos_safeString_(solicitud && solicitud.estado_resolucion).toUpperCase();
-  var estadoCorto = estado === 'ACEPTADA' ? 'OK' : (estado === 'DENEGADA' ? 'NO' : 'RES');
-  var ts = formatDate(fechaGeneracion, 'yyyyMMdd_HHmmss') + '_' + fechaGeneracion.getMilliseconds();
+  var s = solicitud || {};
+  var cursoEscolar = _pdfPermisos_sanitizeFileNamePart_(s.curso_escolar, 'SIN_CURSO');
+  var idCorto = _pdfPermisos_buildShortId_(s.id_solicitud);
+  var iniciales = _pdfPermisos_buildInitials_(s.nombre_profesor, s.apellidos_profesor);
+  var estado = _pdfPermisos_sanitizeFileNamePart_(s.estado_resolucion || s.estado || 'RESOLUCION', 'RESOLUCION').toUpperCase();
 
-  return 'SOL_' + (id || 'SIN_ID') + '_' + estadoCorto + '_' + ts;
+  return 'PERM_' + cursoEscolar + '_' + idCorto + '_' + iniciales + '_' + estado;
+}
+
+function _pdfPermisos_buildInitials_(nombre, apellidos) {
+  var fullName = _pdfPermisos_sanitizeFileNamePart_(
+    _pdfPermisos_safeString_(nombre) + ' ' + _pdfPermisos_safeString_(apellidos),
+    ''
+  );
+
+  if (!fullName) return 'XXX';
+
+  var particles = {
+    DE: true,
+    DEL: true,
+    LA: true,
+    LAS: true,
+    LOS: true,
+    Y: true
+  };
+  var initials = fullName.split('_').reduce(function(acc, part) {
+    if (!part || particles[part]) return acc;
+    return acc + part.charAt(0);
+  }, '');
+
+  return initials || 'XXX';
+}
+
+function _pdfPermisos_sanitizeFileNamePart_(value, fallback) {
+  var text = _pdfPermisos_safeString_(value);
+
+  if (!text) return fallback || '';
+
+  text = text.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  text = text.replace(/[^A-Za-z0-9-]+/g, '_');
+  text = text.replace(/_+/g, '_').replace(/^_+|_+$/g, '');
+  text = text.toUpperCase();
+
+  return text || fallback || '';
+}
+
+function _pdfPermisos_buildShortId_(idSolicitud) {
+  var id = _pdfPermisos_safeString_(idSolicitud);
+  var digits = id.replace(/\D/g, '');
+
+  if (digits) return digits.slice(-6);
+
+  return _pdfPermisos_sanitizeFileNamePart_(id, 'SIN_ID');
 }
 
 function _pdfPermisos_escapeRegExp_(text) {

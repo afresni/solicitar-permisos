@@ -121,6 +121,7 @@ const APP_CONFIG = Object.freeze({
       'maximo_por_curso',
       'requiere_acumulado',
       'requiere_justificante',
+      'modalidad_solicitud',
       'tipo_computo_default',
       'activo',
       'orden',

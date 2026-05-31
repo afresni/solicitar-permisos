@@ -137,10 +137,37 @@ function _crearSolicitud_applyPermisoConfigToPayload_(payload, permisoConfig) {
   payload.categoria_permiso = permisoConfig.categoria_permiso || payload.categoria_permiso || '';
   payload.tipo_permiso = permisoConfig.tipo_permiso || payload.tipo_permiso || '';
   payload.articulo_referencia_permiso = permisoConfig.articulo_referencia || payload.articulo_referencia_permiso || '';
-  payload.tipo_computo = permisoConfig.tipo_computo_default || payload.tipo_computo || '';
   payload.unidad_control = permisoConfig.unidad_control || payload.unidad_control || '';
   payload.maximo_por_curso = permisoConfig.maximo_por_curso || payload.maximo_por_curso || '';
   payload.requiere_acumulado = permisoConfig.requiere_acumulado || payload.requiere_acumulado || '';
+
+  var modalidadSolicitud = String(permisoConfig.modalidad_solicitud === null || permisoConfig.modalidad_solicitud === undefined ? '' : permisoConfig.modalidad_solicitud)
+    .trim()
+    .toUpperCase();
+  var payloadTipoComputo = String(payload.tipo_computo === null || payload.tipo_computo === undefined ? '' : payload.tipo_computo)
+    .trim()
+    .toUpperCase();
+
+  if (modalidadSolicitud === 'DIAS') {
+    payload.tipo_computo = 'DIA_COMPLETO';
+    return;
+  }
+
+  if (modalidadSolicitud === 'HORAS') {
+    payload.tipo_computo = 'HORAS';
+    return;
+  }
+
+  if (modalidadSolicitud === 'DIAS_HORAS') {
+    if (payloadTipoComputo === 'DIA_COMPLETO' || payloadTipoComputo === 'HORAS') {
+      payload.tipo_computo = payloadTipoComputo;
+      return;
+    }
+
+    throw new Error('VALIDATION_ERROR: tipo_computo obligatorio o inválido para modalidad DIAS_HORAS.');
+  }
+
+  payload.tipo_computo = permisoConfig.tipo_computo_default || payload.tipo_computo || '';
 }
 
 function _crearSolicitud_buildNuevaSolicitudRecord_(payload, profesorSnapshot, actorEmail, idSolicitud, cursoEscolar, now) {
@@ -211,6 +238,8 @@ function _crearSolicitud_buildNuevaSolicitudRecord_(payload, profesorSnapshot, a
       record[field] = payload[field];
     }
   });
+
+  record.token_resolucion = Utilities.getUuid();
 
   if (_crearSolicitud_isEmpty_(record.fecha_solicitud)) {
     record.fecha_solicitud = now;

@@ -176,12 +176,25 @@ function resolverSolicitud(idSolicitud, decision, datosResolucion, actorEmail) {
 
   if (finalPatch.estado_resolucion === 'ACEPTADA') {
     try {
-      var jefaturas = listJefaturas(solicitud.etapa, solicitud.categoria_permiso) || [];
+      var notificables = listNotificables(solicitud.etapa, solicitud.categoria_permiso) || [];
 
-      if (jefaturas.length > 0) {
-        notificarJefaturaResolucion(notificationPayload, jefaturas);
+      if (notificables.length > 0) {
+        var notifJefatura = notificarJefaturaResolucion(notificationPayload, notificables);
+        var recipients = notifJefatura && notifJefatura.data && Array.isArray(notifJefatura.data.recipients)
+          ? notifJefatura.data.recipients
+          : [];
+        var nowJefatura = nowDate();
+
+        updateSolicitud(safeId, {
+          jefatura_notificada_email: recipients.join(', '),
+          fecha_notificacion_jefatura: nowJefatura,
+          actualizado_el: nowJefatura,
+          actualizado_por_email: safeActor
+        });
       }
     } catch (eJef) {
+      Logger.log('ERROR AVISO AUSENCIA: ' + eJef);
+
       try {
         auditError('NOTIF_JEF_ERROR', eJef, {
           id_solicitud: safeId,

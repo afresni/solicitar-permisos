@@ -163,6 +163,7 @@
           APP_STATE.acumuladoPrevio = 0;
 
           _appTogglePuestoOtro_();
+          _appSyncModalidadSolicitudUI_(null);
           _appApplyComputoUI_('');
           _appPaintPermisoInfo_(null);
           _appUpdateAcumuladoUI_();
@@ -200,6 +201,15 @@
 
       var dias = document.getElementById('num_dias_solicitados');
       if (dias) dias.oninput = _appUpdateAcumuladoUI_;
+
+      var modalidad = document.getElementById('modalidad_solicitud_elegida');
+      if (modalidad) {
+        modalidad.onchange = function () {
+          var tipoComputo = _appDeriveTipoComputo_(APP_STATE.selectedPermiso, _appGetValue_('modalidad_solicitud_elegida'));
+          _appApplyComputoUI_(tipoComputo);
+          _appUpdateAcumuladoUI_();
+        };
+      }
     }
 
     function _appSetActiveTab_(viewName) {
@@ -410,15 +420,19 @@
         return String(p.permiso_key || '').trim() === permisoKey;
       }) || {};
 
-      var tipoComputo = String(permisoData.tipo_computo_default || '').trim();
+      var modalidadSolicitud = String(permisoData.modalidad_solicitud || '').trim().toUpperCase();
+      var modalidadElegida = _appGetValue_('modalidad_solicitud_elegida');
+      var tipoComputo = _appDeriveTipoComputo_(permisoData, modalidadElegida);
       var unidadControl = String(permisoData.unidad_control || '').trim();
       var requiereAcumulado = String(permisoData.requiere_acumulado || '').trim();
 
-      if (tipoComputo === 'DIA_COMPLETO') {
-        if (!fechaFin) {
-          fechaFin = fechaInicio;
-        }
+      if (!fechaFin) throw new Error('VALIDATION_ERROR: fecha de fin requerida.');
 
+      if (modalidadSolicitud === 'DIAS_HORAS' && !tipoComputo) {
+        throw new Error('VALIDATION_ERROR: modalidad de solicitud requerida.');
+      }
+
+      if (tipoComputo === 'DIA_COMPLETO') {
         if (!dias) {
           dias = '1';
         }
@@ -431,10 +445,6 @@
       }
 
       if (tipoComputo === 'MIXTO') {
-        if (!fechaFin) {
-          fechaFin = fechaInicio;
-        }
-
         if (!dias) {
           dias = '1';
         }
@@ -530,6 +540,7 @@
           });
 
         _appPaintPermisoInfo_(null);
+        _appSyncModalidadSolicitudUI_(null);
         _appApplyComputoUI_('');
         _appUpdateAcumuladoUI_();
       };
@@ -542,13 +553,48 @@
         return String(p.permiso_key || '').trim() === permisoKey;
       }) || null;
 
-      var tipoComputo = APP_STATE.selectedPermiso
-        ? String(APP_STATE.selectedPermiso.tipo_computo_default || '').trim()
-        : '';
+      _appSyncModalidadSolicitudUI_(APP_STATE.selectedPermiso);
+
+      var tipoComputo = _appDeriveTipoComputo_(APP_STATE.selectedPermiso, _appGetValue_('modalidad_solicitud_elegida'));
 
       _appPaintPermisoInfo_(APP_STATE.selectedPermiso);
       _appApplyComputoUI_(tipoComputo);
       _appUpdateAcumuladoUI_();
+    }
+
+    function _appSyncModalidadSolicitudUI_(permiso) {
+      var container = document.getElementById('modalidad_solicitud_container');
+      var select = document.getElementById('modalidad_solicitud_elegida');
+
+      if (!container || !select) return;
+
+      var modalidad = permiso
+        ? String(permiso.modalidad_solicitud || '').trim().toUpperCase()
+        : '';
+      var flexible = modalidad === 'DIAS_HORAS';
+
+      container.hidden = !flexible;
+      select.required = flexible;
+
+      if (!flexible) {
+        select.value = '';
+      }
+    }
+
+    function _appDeriveTipoComputo_(permiso, modalidadElegida) {
+      var data = permiso || {};
+      var modalidad = String(data.modalidad_solicitud || '').trim().toUpperCase();
+      var elegida = String(modalidadElegida || '').trim().toUpperCase();
+
+      if (modalidad === 'DIAS') return 'DIA_COMPLETO';
+      if (modalidad === 'HORAS') return 'HORAS';
+
+      if (modalidad === 'DIAS_HORAS') {
+        if (elegida === 'DIA_COMPLETO' || elegida === 'HORAS') return elegida;
+        return '';
+      }
+
+      return String(data.tipo_computo_default || '').trim();
     }
 
     function _appPaintPermisoInfo_(permiso) {
@@ -570,6 +616,13 @@
       var tipo = String(tipoComputo || '').trim();
 
       document.querySelectorAll('[data-tipo-computo]').forEach(function (node) {
+        var firstInput = node.querySelector('input, select, textarea');
+        if (firstInput && (firstInput.id === 'fecha_inicio' || firstInput.id === 'fecha_fin')) {
+          node.hidden = false;
+          firstInput.required = true;
+          return;
+        }
+
         var allowed = String(node.getAttribute('data-tipo-computo') || '').split(/\s+/).filter(Boolean);
         var visible = !!tipo && allowed.indexOf(tipo) !== -1;
 
@@ -583,6 +636,9 @@
 
       var fechaInicio = document.getElementById('fecha_inicio');
       if (fechaInicio) fechaInicio.required = true;
+
+      var fechaFin = document.getElementById('fecha_fin');
+      if (fechaFin) fechaFin.required = true;
     }
 
     function _appUpdateAcumuladoUI_() {

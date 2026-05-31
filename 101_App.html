@@ -51,7 +51,7 @@
                 <option value="">Selecciona una etapa</option>
                 <option value="INFANTIL">INFANTIL</option>
                 <option value="PRIMARIA">PRIMARIA</option>
-                <option value="ESO">ESO</option>
+                <option value="ESO">Secundaria</option>
                 <option value="PAS">PAS</option>
               </select>
             </div>
@@ -59,14 +59,13 @@
 
           <div class="form-row form-row--inline">
             <div class="form-field">
-              <label for="puesto_trabajo">Puesto de trabajo</label>
+              <label for="puesto_trabajo">Función</label>
               <select id="puesto_trabajo" name="puesto_trabajo" required>
                 <option value="">Selecciona un puesto</option>
                 <option value="Tutor/a">Tutor/a</option>
                 <option value="Especialista">Especialista</option>
-                <option value="PAS">PAS</option>
                 <option value="Equipo directivo">Equipo directivo</option>
-                <option value="Orientación">Orientación</option>
+                <option value="PAS">PAS</option>
                 <option value="Otro">Otro</option>
               </select>
             </div>
@@ -125,13 +124,24 @@
         <section class="form-section" aria-labelledby="titulo-periodo-solicitado">
           <h3 id="titulo-periodo-solicitado" class="form-section-title">Periodo solicitado</h3>
 
+          <div class="form-row" id="modalidad_solicitud_container" hidden>
+            <div class="form-field">
+              <label for="modalidad_solicitud_elegida">Modalidad de solicitud</label>
+              <select id="modalidad_solicitud_elegida" name="modalidad_solicitud_elegida">
+                <option value="">Selecciona una modalidad</option>
+                <option value="DIA_COMPLETO">Día completo</option>
+                <option value="HORAS">Por horas</option>
+              </select>
+            </div>
+          </div>
+
           <div class="form-row form-row--inline">
-            <div class="form-field" data-tipo-computo="DIA_COMPLETO MIXTO HORAS">
+            <div class="form-field">
               <label for="fecha_inicio">Fecha inicio</label>
               <input type="date" id="fecha_inicio" name="fecha_inicio" required>
             </div>
 
-            <div class="form-field" data-tipo-computo="DIA_COMPLETO MIXTO">
+            <div class="form-field">
               <label for="fecha_fin">Fecha fin</label>
               <input type="date" id="fecha_fin" name="fecha_fin">
             </div>
@@ -152,12 +162,12 @@
           <div class="form-row form-row--inline">
             <div class="form-field" data-tipo-computo="DIA_COMPLETO MIXTO">
               <label for="num_dias_solicitados">N.º días solicitados</label>
-              <input type="number" id="num_dias_solicitados" name="num_dias_solicitados" min="0" step="0.5">
+              <input type="number" id="num_dias_solicitados" name="num_dias_solicitados" min="1" step="1">
             </div>
 
             <div class="form-field" data-tipo-computo="HORAS MIXTO">
               <label for="num_horas_solicitadas">N.º horas solicitadas</label>
-              <input type="number" id="num_horas_solicitadas" name="num_horas_solicitadas" min="0" step="0.25">
+              <input type="number" id="num_horas_solicitadas" name="num_horas_solicitadas" min="1" step="1">
             </div>
           </div>
         </section>

@@ -18,28 +18,17 @@ function validateNuevaSolicitud(input, permisoConfig) {
   void permisoConfig;
 
   _validSolicitud_requireFields_(data, [
-  'categoria_permiso',
-  'permiso_key',
-  'tipo_permiso',
-  'articulo_referencia_permiso',
-  'tipo_computo',
-  'fecha_inicio',
-  'justificante_adjunto'
-], errors);
+    'categoria_permiso',
+    'permiso_key',
+    'tipo_permiso',
+    'articulo_referencia_permiso',
+    'tipo_computo',
+    'fecha_inicio',
+    'fecha_fin',
+    'justificante_adjunto'
+  ], errors);
 
-var tipoComputo = _validSolicitud_normalizeToken_(data.tipo_computo);
-
-// fecha_fin SOLO obligatoria en DIA_COMPLETO y MIXTO
-if (
-  tipoComputo === 'DIA_COMPLETO' ||
-  tipoComputo === 'MIXTO'
-) {
-  if (_validSolicitud_isEmpty_(data.fecha_fin)) {
-    _validSolicitud_pushError_(errors, 'Campo obligatorio faltante: fecha_fin');
-  }
-}
-
-
+  var tipoComputo = _validSolicitud_normalizeToken_(data.tipo_computo);
 
   if (tipoComputo && getTiposComputo().indexOf(tipoComputo) < 0) {
     _validSolicitud_pushError_(errors, 'tipo_computo inválido.');
@@ -202,6 +191,13 @@ function _validSolicitud_validateComputoFields_(data, tipoComputo, errors) {
       1,
       errors
     );
+
+    if (!_validSolicitud_isEmpty_(data.num_dias_solicitados)) {
+      var diasD = Number(data.num_dias_solicitados);
+      if (Number.isFinite(diasD) && Math.floor(diasD) !== diasD) {
+        _validSolicitud_pushError_(errors, 'num_dias_solicitados inválido: debe ser un número entero >= 1.');
+      }
+    }
     return;
   }
 
@@ -217,9 +213,16 @@ function _validSolicitud_validateComputoFields_(data, tipoComputo, errors) {
     _validSolicitud_validateRequiredPositiveNumber_(
       data.num_horas_solicitadas,
       'num_horas_solicitadas',
-      0.01,
+      1,
       errors
     );
+
+    if (!_validSolicitud_isEmpty_(data.num_horas_solicitadas)) {
+      var horasH = Number(data.num_horas_solicitadas);
+      if (Number.isFinite(horasH) && Math.floor(horasH) !== horasH) {
+        _validSolicitud_pushError_(errors, 'num_horas_solicitadas inválido: debe ser un número entero >= 1.');
+      }
+    }
     return;
   }
 
@@ -230,6 +233,13 @@ function _validSolicitud_validateComputoFields_(data, tipoComputo, errors) {
       1,
       errors
     );
+
+    if (!_validSolicitud_isEmpty_(data.num_dias_solicitados)) {
+      var diasM = Number(data.num_dias_solicitados);
+      if (Number.isFinite(diasM) && Math.floor(diasM) !== diasM) {
+        _validSolicitud_pushError_(errors, 'num_dias_solicitados inválido: debe ser un número entero >= 1.');
+      }
+    }
 
     if (_validSolicitud_isEmpty_(data.hora_inicio)) {
       _validSolicitud_pushError_(errors, 'hora_inicio es obligatorio para MIXTO.');
@@ -242,9 +252,16 @@ function _validSolicitud_validateComputoFields_(data, tipoComputo, errors) {
     _validSolicitud_validateRequiredPositiveNumber_(
       data.num_horas_solicitadas,
       'num_horas_solicitadas',
-      0.01,
+      1,
       errors
     );
+
+    if (!_validSolicitud_isEmpty_(data.num_horas_solicitadas)) {
+      var horasM = Number(data.num_horas_solicitadas);
+      if (Number.isFinite(horasM) && Math.floor(horasM) !== horasM) {
+        _validSolicitud_pushError_(errors, 'num_horas_solicitadas inválido: debe ser un número entero >= 1.');
+      }
+    }
   }
 }
 
@@ -264,6 +281,13 @@ function _validSolicitud_validateAutorizadosPorComputo_(data, tipoComputo, error
       1,
       errors
     );
+
+    if (!_validSolicitud_isEmpty_(data.dias_autorizados)) {
+      var diasD = Number(data.dias_autorizados);
+      if (Number.isFinite(diasD) && Math.floor(diasD) !== diasD) {
+        _validSolicitud_pushError_(errors, 'dias_autorizados inválido: debe ser un número entero >= 1.');
+      }
+    }
     return;
   }
 
@@ -271,9 +295,16 @@ function _validSolicitud_validateAutorizadosPorComputo_(data, tipoComputo, error
     _validSolicitud_validateRequiredPositiveNumber_(
       data.horas_autorizadas,
       'horas_autorizadas',
-      0.01,
+      1,
       errors
     );
+
+    if (!_validSolicitud_isEmpty_(data.horas_autorizadas)) {
+      var horasH = Number(data.horas_autorizadas);
+      if (Number.isFinite(horasH) && Math.floor(horasH) !== horasH) {
+        _validSolicitud_pushError_(errors, 'horas_autorizadas inválido: debe ser un número entero >= 1.');
+      }
+    }
     return;
   }
 
@@ -285,12 +316,26 @@ function _validSolicitud_validateAutorizadosPorComputo_(data, tipoComputo, error
       errors
     );
 
+    if (!_validSolicitud_isEmpty_(data.dias_autorizados)) {
+      var diasM = Number(data.dias_autorizados);
+      if (Number.isFinite(diasM) && Math.floor(diasM) !== diasM) {
+        _validSolicitud_pushError_(errors, 'dias_autorizados inválido: debe ser un número entero >= 1.');
+      }
+    }
+
     _validSolicitud_validateRequiredPositiveNumber_(
       data.horas_autorizadas,
       'horas_autorizadas',
-      0.01,
+      1,
       errors
     );
+
+    if (!_validSolicitud_isEmpty_(data.horas_autorizadas)) {
+      var horasM = Number(data.horas_autorizadas);
+      if (Number.isFinite(horasM) && Math.floor(horasM) !== horasM) {
+        _validSolicitud_pushError_(errors, 'horas_autorizadas inválido: debe ser un número entero >= 1.');
+      }
+    }
     return;
   }
 
